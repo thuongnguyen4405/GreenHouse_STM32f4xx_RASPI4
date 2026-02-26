@@ -636,7 +636,7 @@ temp_°C   = temp_x10 / 10.0
 
 | Name | Role |
 |------|------|
-| **Thanh** | Embedded Firmware & System Integration |
+| **Thuong** | Embedded Firmware & System Integration |
 
 ---
 
