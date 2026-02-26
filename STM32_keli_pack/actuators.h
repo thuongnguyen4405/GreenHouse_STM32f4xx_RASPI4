@@ -6,35 +6,35 @@
 #include "fire_logic.h"
 
 /*============================================================
- *  actuators � �i?u khi?n Buzzer (PB0) & Motor (PB1)
+ *  actuators – Điều khiển Buzzer (PB0) & Motor (PB1)
  *
  *  Buzzer beep pattern theo FireState:
- *    NORMAL : t?t
- *    WARN   : beep ch?m ~1 Hz (100ms ON / 900ms OFF)
+ *    NORMAL : tắt
+ *    WARN   : beep chậm ~1 Hz (100ms ON / 900ms OFF)
  *    ALARM  : beep nhanh ~10 Hz (50ms ON / 50ms OFF)
  *
- *  Motor (qu?t h�t / bom nu?c):
- *    NORMAL : t?t
- *    WARN   : t?t (chua c?n can thi?p)
- *    ALARM  : b?t (h�t kh�i / l�m m�t kh?n c?p)
+ *  Motor (quạt hút / bơm nước):
+ *    NORMAL : tắt
+ *    WARN   : tắt (chưa cần can thiệp)
+ *    ALARM  : bật (hút khói / làm mát khẩn cấp)
  *
- *  Hardware: GPIO push-pull output, d�ng BSRR d? atomic set/reset.
+ *  Hardware: GPIO push-pull output, dùng BSRR để atomic set/reset.
  *============================================================*/
 
-/* Kh?i t?o: t?t c? buzzer & motor, reset state */
+/* Khởi tạo: tắt cả buzzer & motor, reset state */
 void    Actuator_Init(void);
 
-/* Set target state (g?i t? greenhouse logic trong DMA IRQ) */
+/* Set target state (gọi từ greenhouse logic trong DMA IRQ) */
 void    Actuator_SetState(FireState st);
 
-/* Tick 1ms (g?i t? SysTick_Handler ? ch?y pattern beep) */
+/* Tick 1ms (gọi từ SysTick_Handler → chạy pattern beep) */
 void    Actuator_Tick1ms(void);
 
-/* Query tr?ng th�i (cho SPI packet STATUS byte) */
+/* Query trạng thái (cho SPI packet STATUS byte) */
 uint8_t Actuator_IsBuzzerOn(void);
 uint8_t Actuator_IsMotorOn(void);
 
-/* Low-level GPIO (legacy API, tuong th�ch code cu) */
+/* Low-level GPIO (legacy API, tương thích code cũ) */
 void    Buzzer_Set(uint8_t on);
 void    Motor_Set(uint8_t on);
 uint8_t Buzzer_Get(void);
