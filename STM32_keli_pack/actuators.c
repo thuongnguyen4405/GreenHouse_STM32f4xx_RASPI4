@@ -2,53 +2,53 @@
 #include "board.h"
 
 /*============================================================
- *  actuators.c � Buzzer beep pattern + Motor ON/OFF
+ *  actuators.c – Buzzer beep pattern + Motor ON/OFF
  *
- *  Buzzer d�ng GPIO push-pull (PB0), kh�ng ph?i PWM.
- *  Pattern beep du?c t?o b?ng software timer:
- *    - Actuator_SetState() set target (g?i t? DMA IRQ)
- *    - Actuator_Tick1ms()  ch?y pattern (g?i t? SysTick 1ms)
+ *  Buzzer dùng GPIO push-pull (PB0), không phải PWM.
+ *  Pattern beep được tạo bằng software timer:
+ *    - Actuator_SetState() set target (gọi từ DMA IRQ)
+ *    - Actuator_Tick1ms()  chạy pattern (gọi từ SysTick 1ms)
  *
- *  Motor d�ng GPIO push-pull (PB1), ON/OFF theo state.
+ *  Motor dùng GPIO push-pull (PB1), ON/OFF theo state.
  *
- *  D�ng BSRR thay v� ODR d? atomic set/reset (an to�n ISR).
+ *  Dùng BSRR thay vì ODR để atomic set/reset (an toàn ISR).
  *============================================================*/
 
 static FireState g_state = FIRE_STATE_NORMAL;
 static uint16_t  g_tick  = 0;   /* ms counter cho buzzer pattern */
 
-/* ----------- Low-level GPIO ----------- */
+/* ═══════════ Low-level GPIO ═══════════ */
 
 /*------------------------------------------------------------
- *  Buzzer_Set � B?t/t?t buzzer qua PB0
+ *  Buzzer_Set – Bật/tắt buzzer qua PB0
  *
- *  D�ng BSRR (Bit Set Reset Register):
- *    - Bit 0 (set)   : ghi 1 ? PB0 = HIGH
- *    - Bit 16 (reset): ghi 1 ? PB0 = LOW
- *  BSRR l� atomic, an to�n khi g?i t? nhi?u ISR context.
+ *  Dùng BSRR (Bit Set Reset Register):
+ *    - Bit 0 (set)   : ghi 1 → PB0 = HIGH
+ *    - Bit 16 (reset): ghi 1 → PB0 = LOW
+ *  BSRR là atomic, an toàn khi gọi từ nhiều ISR context.
  *------------------------------------------------------------*/
 void Buzzer_Set(uint8_t on)
 {
-    if (on) GPIOB->BSRR = (1U << 0);           /* PB0 = HIGH (b?t) */
-    else    GPIOB->BSRR = (1U << (0 + 16));     /* PB0 = LOW  (t?t) */
+    if (on) GPIOB->BSRR = (1U << 0);           /* PB0 = HIGH (bật) */
+    else    GPIOB->BSRR = (1U << (0 + 16));     /* PB0 = LOW  (tắt) */
 }
 
 /*------------------------------------------------------------
- *  Motor_Set � B?t/t?t motor qua PB1
+ *  Motor_Set – Bật/tắt motor qua PB1
  *------------------------------------------------------------*/
 void Motor_Set(uint8_t on)
 {
-    if (on) GPIOB->BSRR = (1U << 1);            /* PB1 = HIGH (b?t) */
-    else    GPIOB->BSRR = (1U << (1 + 16));      /* PB1 = LOW  (t?t) */
+    if (on) GPIOB->BSRR = (1U << 1);            /* PB1 = HIGH (bật) */
+    else    GPIOB->BSRR = (1U << (1 + 16));      /* PB1 = LOW  (tắt) */
 }
 
 uint8_t Buzzer_Get(void) { return (GPIOB->ODR >> 0) & 1U; }
 uint8_t Motor_Get(void)  { return (GPIOB->ODR >> 1) & 1U; }
 
-/* ----------- High-level Actuator API ----------- */
+/* ═══════════ High-level Actuator API ═══════════ */
 
 /*------------------------------------------------------------
- *  Actuator_Init � Reset state, t?t t?t c?
+ *  Actuator_Init – Reset state, tắt tất cả
  *------------------------------------------------------------*/
 void Actuator_Init(void)
 {
@@ -59,38 +59,38 @@ void Actuator_Init(void)
 }
 
 /*------------------------------------------------------------
- *  Actuator_SetState � C?p nh?t target state
+ *  Actuator_SetState – Cập nhật target state
  *
- *  G?i t? Greenhouse_OnAdcReady() (DMA IRQ context).
- *  Khi state d?i ? reset tick counter d? pattern b?t d?u l?i.
+ *  Gọi từ Greenhouse_OnAdcReady() (DMA IRQ context).
+ *  Khi state đổi → reset tick counter để pattern bắt đầu lại.
  *------------------------------------------------------------*/
 void Actuator_SetState(FireState st)
 {
     if (st != g_state)
     {
         g_state = st;
-        g_tick  = 0;    /* reset pattern timing khi d?i state */
+        g_tick  = 0;    /* reset pattern timing khi đổi state */
     }
 }
 
 /*------------------------------------------------------------
- *  Actuator_Tick1ms � G?i t? SysTick_Handler m?i 1 ms
+ *  Actuator_Tick1ms – Gọi từ SysTick_Handler mỗi 1 ms
  *
- *  Ch?y buzzer beep pattern theo g_state:
+ *  Chạy buzzer beep pattern theo g_state:
  *
  *    NORMAL:
  *      Buzzer OFF, Motor OFF, counter reset.
  *
- *    WARN (beep ch?m ~1 Hz):
- *      +--ON--+              +--ON--+
- *      �100ms �   900ms OFF  �100ms � ...
- *      +------+--------------+------+
+ *    WARN (beep chậm ~1 Hz):
+ *      ┌──ON──┐              ┌──ON──┐
+ *      │100ms │   900ms OFF  │100ms │ ...
+ *      └──────┘──────────────└──────┘
  *      Motor OFF.
  *
  *    ALARM (beep nhanh ~10 Hz):
- *      +ON+   +ON+   +ON+
- *      �50�50 �50�50 �50� ...
- *      +--+---+--+---+--+
+ *      ┌ON┐   ┌ON┐   ┌ON┐
+ *      │50│50 │50│50 │50│ ...
+ *      └──┘───└──┘───└──┘
  *      Motor ON.
  *------------------------------------------------------------*/
 void Actuator_Tick1ms(void)
@@ -111,7 +111,7 @@ void Actuator_Tick1ms(void)
                 Buzzer_Set(0);
             if (g_tick >= (uint16_t)(BUZZER_WARN_ON_MS + BUZZER_WARN_OFF_MS))
                 g_tick = 0;
-            Motor_Set(0);          /* WARN: chua b?t motor */
+            Motor_Set(0);          /* WARN: chưa bật motor */
             break;
 
         case FIRE_STATE_ALARM:
@@ -122,7 +122,7 @@ void Actuator_Tick1ms(void)
                 Buzzer_Set(0);
             if (g_tick >= (uint16_t)(BUZZER_ALARM_ON_MS + BUZZER_ALARM_OFF_MS))
                 g_tick = 0;
-            Motor_Set(1);          /* ALARM: b?t motor (qu?t h�t / bom) */
+            Motor_Set(1);          /* ALARM: bật motor (quạt hút / bơm) */
             break;
 
         default:
