@@ -25,7 +25,7 @@ SPI Frame (16 bytes, little-endian):
   [14]  XOR checksum of [0..13]
   [15]  0x0D  end marker
 
-Author : Thanh
+Author : Thuong
 Date   : 2025
 """
 
